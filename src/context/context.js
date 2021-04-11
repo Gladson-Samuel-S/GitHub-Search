@@ -15,7 +15,39 @@ const GithubProvider = ({ children }) => {
 
   // Requests loading
   const [requests, setRequests] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  // error
+  const [error, setError] = useState({ show: false, msg: "" })
+
+  const searchGithubUser = async (user) => {
+    toggleError()
+    setIsLoading(true)
+    const response = await axios(`${rootUrl}/users/${user}`).catch((err) =>
+      console.log(err)
+    )
+
+    if (response) {
+      setGithubUser(response.data)
+      const { login, followers_url } = response.data
+      //repos
+      axios(`${rootUrl}/users/${login}/repos?per_page=100`).then((response) =>
+        setRepos(response.data)
+      )
+      //followers
+      axios(`${followers_url}?per_page=100`).then((response) =>
+        setFollowers(response.data)
+      )
+      // repos
+      //https://api.github.com/users/john-smilga/repos?per_page=100
+      // followers
+      // https://api.github.com/users/john-smilga/followers
+    } else {
+      toggleError(true, "there is no user with that username   ")
+    }
+    checkRequests()
+    setIsLoading(false)
+  }
+
   // check rate
   const checkRequests = () => {
     axios(`${rootUrl}/rate_limit`)
@@ -26,6 +58,10 @@ const GithubProvider = ({ children }) => {
         setRequests(remaining)
         if (remaining === 0) {
           //throw an error
+          toggleError(
+            true,
+            "Sorry you have Exceeded to your hourly rate limit!"
+          )
         }
       })
       .catch((err) => {
@@ -34,11 +70,24 @@ const GithubProvider = ({ children }) => {
   }
 
   // error
+  function toggleError(show = false, msg = "") {
+    setError({ show, msg })
+  }
 
   useEffect(checkRequests, [])
 
   return (
-    <GithubContext.Provider value={{ githubUser, repos, followers, requests }}>
+    <GithubContext.Provider
+      value={{
+        githubUser,
+        repos,
+        followers,
+        requests,
+        error,
+        searchGithubUser,
+        isLoading,
+      }}
+    >
       {children}
     </GithubContext.Provider>
   )
